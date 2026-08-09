@@ -19,7 +19,6 @@
 #include "report_parser.h"
 
 #include "quantizer_mouse.h"
-#define SPACE_FN_LAYER 3
 
 const uint16_t keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{
     {0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7},
@@ -62,34 +61,12 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     bool cont = process_record_mouse(keycode, record);
 
-    // Quantizer側の既存マウス処理がイベントを止めた場合は
-    // その結果を尊重する
-    if (!cont) {
-        return false;
+    if (record->event.pressed) {
+        switch (keycode) {
+        }
     }
 
-    switch (keycode) {
-        case KC_SPC:
-            if (record->event.pressed) {
-                // 通常のSpaceをPCへ即座にKeyDown
-                register_code(KC_SPC);
-
-                // Space用レイヤーを有効化
-                layer_on(SPACE_FN_LAYER);
-
-            } else {
-                // 先にSpace用レイヤーを解除
-                layer_off(SPACE_FN_LAYER);
-
-                // 通常のSpaceをKeyUp
-                unregister_code(KC_SPC);
-            }
-
-            // QMK標準のKC_SPC処理を二重に実行させない
-            return false;
-    }
-
-    return true;
+    return cont;
 }
 
 void post_process_record_user(uint16_t keycode, keyrecord_t* record) {
