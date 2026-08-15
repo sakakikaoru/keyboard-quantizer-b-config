@@ -58,15 +58,59 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
     return pre_process_record_mouse(keycode, record);
 }
 
+static bool     space_held;
+static uint16_t space_fn_active;
+
+static uint8_t space_fn_target(uint16_t keycode) {
+    switch (keycode) {
+        case KC_1:    return KC_F1;
+        case KC_2:    return KC_F2;
+        case KC_3:    return KC_F3;
+        case KC_4:    return KC_F4;
+        case KC_5:    return KC_F5;
+        case KC_6:    return KC_F6;
+        case KC_7:    return KC_F7;
+        case KC_8:    return KC_F8;
+        case KC_9:    return KC_F9;
+        case KC_0:    return KC_F10;
+        case KC_MINS: return KC_F11;
+        case KC_EQL:  return KC_F12;
+        default:      return KC_NO;
+    }
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     bool cont = process_record_mouse(keycode, record);
 
-    if (record->event.pressed) {
-        switch (keycode) {
+    if (!cont) {
+        return false;
+    }
+
+    // Keep Space itself unchanged so hold-to-pan continues to work.
+    if (keycode == KC_SPC) {
+        space_held = record->event.pressed;
+        return true;
+    }
+
+    uint8_t target = space_fn_target(keycode);
+    if (target != KC_NO) {
+        uint16_t mask = (uint16_t)1U << (target - KC_F1);
+
+        if (record->event.pressed && space_held) {
+            space_fn_active |= mask;
+            register_code(target);
+            return false;
+        }
+
+        // Suppress the matching number release even if Space was released first.
+        if (!record->event.pressed && (space_fn_active & mask)) {
+            space_fn_active &= ~mask;
+            unregister_code(target);
+            return false;
         }
     }
 
-    return cont;
+    return true;
 }
 
 void post_process_record_user(uint16_t keycode, keyrecord_t* record) {
