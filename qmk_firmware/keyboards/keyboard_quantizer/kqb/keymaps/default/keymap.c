@@ -58,25 +58,62 @@ bool pre_process_record_user(uint16_t keycode, keyrecord_t *record) {
     return pre_process_record_mouse(keycode, record);
 }
 
-static bool     space_held;
-static uint16_t space_fn_active;
+typedef struct {
+    uint16_t source;
+    uint8_t  target;
+} space_shortcut_t;
 
-static uint8_t space_fn_target(uint16_t keycode) {
-    switch (keycode) {
-        case KC_1:    return KC_F1;
-        case KC_2:    return KC_F2;
-        case KC_3:    return KC_F3;
-        case KC_4:    return KC_F4;
-        case KC_5:    return KC_F5;
-        case KC_6:    return KC_F6;
-        case KC_7:    return KC_F7;
-        case KC_8:    return KC_F8;
-        case KC_9:    return KC_F9;
-        case KC_0:    return KC_F10;
-        case KC_MINS: return KC_F11;
-        case KC_EQL:  return KC_F12;
-        default:      return KC_NO;
+static const space_shortcut_t space_shortcuts[] = {
+    {KC_1, KC_F1},
+    {KC_2, KC_F2},
+    {KC_3, KC_F3},
+    {KC_4, KC_F4},
+    {KC_5, KC_F5},
+    {KC_6, KC_F6},
+    {KC_7, KC_F7},
+    {KC_8, KC_F8},
+    {KC_9, KC_F9},
+    {KC_0, KC_F10},
+    {KC_MINS, KC_F11},
+    {KC_EQL, KC_F12},
+    {KC_S, KC_LEFT},
+    {KC_D, KC_DOWN},
+    {KC_F, KC_RGHT},
+    {KC_E, KC_UP},
+    {KC_J, KC_LEFT},
+    {KC_K, KC_DOWN},
+    {KC_L, KC_RGHT},
+    {KC_I, KC_UP},
+    {KC_N, KC_HOME},
+    {KC_M, KC_END},
+    {KC_LALT, KC_F13},
+    {KC_RALT, KC_F14},
+};
+
+#define SPACE_SHORTCUT_COUNT ((uint8_t)(sizeof(space_shortcuts) / sizeof(space_shortcuts[0])))
+
+static bool     space_held;
+static uint32_t space_shortcut_active;
+
+static int8_t space_shortcut_index(uint16_t keycode) {
+    for (uint8_t index = 0; index < SPACE_SHORTCUT_COUNT; index++) {
+        if (space_shortcuts[index].source == keycode) {
+            return (int8_t)index;
+        }
     }
+
+    return -1;
+}
+
+static bool space_shortcut_target_active(uint8_t target) {
+    for (uint8_t index = 0; index < SPACE_SHORTCUT_COUNT; index++) {
+        uint32_t mask = 1UL << index;
+        if ((space_shortcut_active & mask) && space_shortcuts[index].target == target) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
@@ -92,27 +129,31 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return true;
     }
 
-    uint8_t target = space_fn_target(keycode);
-    if (target != KC_NO) {
-        uint16_t mask = (uint16_t)1U << (target - KC_F1);
+    int8_t index = space_shortcut_index(keycode);
+    if (index >= 0) {
+        uint32_t mask   = 1UL << index;
+        uint8_t  target = space_shortcuts[(uint8_t)index].target;
 
         if (record->event.pressed && space_held) {
-            space_fn_active |= mask;
-            register_code(target);
+            if (!space_shortcut_target_active(target)) {
+                register_code(target);
+            }
+            space_shortcut_active |= mask;
             return false;
         }
 
-        // Suppress the matching number release even if Space was released first.
-        if (!record->event.pressed && (space_fn_active & mask)) {
-            space_fn_active &= ~mask;
-            unregister_code(target);
+        // Suppress the matching source release even if Space was released first.
+        if (!record->event.pressed && (space_shortcut_active & mask)) {
+            space_shortcut_active &= ~mask;
+            if (!space_shortcut_target_active(target)) {
+                unregister_code(target);
+            }
             return false;
         }
     }
 
     return true;
 }
-
 void post_process_record_user(uint16_t keycode, keyrecord_t* record) {
     post_process_record_mouse(keycode, record);
 }
