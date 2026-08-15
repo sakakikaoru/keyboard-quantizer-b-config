@@ -92,7 +92,12 @@ static const space_shortcut_t space_shortcuts[] = {
 
 #define SPACE_SHORTCUT_COUNT ((uint8_t)(sizeof(space_shortcuts) / sizeof(space_shortcuts[0])))
 
-static bool     space_held;
+#define SPACE_COMBO_TERM 200
+
+static bool     space_pressed;
+static bool     space_sent;
+static bool     space_combo_used;
+static uint16_t space_timer;
 static uint32_t space_shortcut_active;
 
 static int8_t space_shortcut_index(uint16_t keycode) {
@@ -116,6 +121,13 @@ static bool space_shortcut_target_active(uint8_t target) {
     return false;
 }
 
+static void send_pending_space(void) {
+    if (space_pressed && !space_sent && !space_combo_used) {
+        register_code(KC_SPC);
+        space_sent = true;
+    }
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     bool cont = process_record_mouse(keycode, record);
 
@@ -123,10 +135,25 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         return false;
     }
 
-    // Keep Space itself unchanged so hold-to-pan continues to work.
+    // Delay Space briefly so a shortcut can take priority.
     if (keycode == KC_SPC) {
-        space_held = record->event.pressed;
-        return true;
+        if (record->event.pressed) {
+            space_pressed    = true;
+            space_sent       = false;
+            space_combo_used = false;
+            space_timer      = timer_read();
+        } else {
+            if (space_sent) {
+                unregister_code(KC_SPC);
+            } else if (!space_combo_used) {
+                tap_code(KC_SPC);
+            }
+
+            space_pressed    = false;
+            space_sent       = false;
+            space_combo_used = false;
+        }
+        return false;
     }
 
     int8_t index = space_shortcut_index(keycode);
@@ -134,7 +161,8 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         uint32_t mask   = 1UL << index;
         uint8_t  target = space_shortcuts[(uint8_t)index].target;
 
-        if (record->event.pressed && space_held) {
+        if (record->event.pressed && space_pressed) {
+            space_combo_used = true;
             if (!space_shortcut_target_active(target)) {
                 register_code(target);
             }
@@ -152,7 +180,18 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
     }
 
+    // Preserve ordering when a normal key follows a pending Space.
+    if (record->event.pressed) {
+        send_pending_space();
+    }
+
     return true;
+}
+
+void matrix_scan_user(void) {
+    if (space_pressed && timer_elapsed(space_timer) >= SPACE_COMBO_TERM) {
+        send_pending_space();
+    }
 }
 void post_process_record_user(uint16_t keycode, keyrecord_t* record) {
     post_process_record_mouse(keycode, record);
