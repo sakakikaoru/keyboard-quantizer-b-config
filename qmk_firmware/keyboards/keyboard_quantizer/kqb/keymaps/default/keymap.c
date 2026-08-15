@@ -92,7 +92,7 @@ static const space_shortcut_t space_shortcuts[] = {
 
 #define SPACE_SHORTCUT_COUNT ((uint8_t)(sizeof(space_shortcuts) / sizeof(space_shortcuts[0])))
 
-#define SPACE_COMBO_TERM 300
+#define SPACE_COMBO_TERM 200
 
 static bool     space_pressed;
 static bool     space_sent;
@@ -119,6 +119,20 @@ static bool space_shortcut_target_active(uint8_t target) {
     }
 
     return false;
+}
+
+static bool is_space_pending_modifier(uint16_t keycode) {
+    switch (keycode) {
+        case KC_LSFT:
+        case KC_RSFT:
+        case KC_LCTL:
+        case KC_RCTL:
+        case KC_LGUI:
+        case KC_RGUI:
+            return true;
+        default:
+            return false;
+    }
 }
 
 static void send_pending_space(void) {
@@ -180,9 +194,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
     }
 
-    // Preserve ordering when a normal key follows a pending Space.
+    // Shift, Ctrl, and GUI can precede a shortcut without committing Space.
     if (record->event.pressed) {
-        send_pending_space();
+        if (is_space_pending_modifier(keycode)) {
+            if (space_pressed && !space_sent && !space_combo_used) {
+                space_timer = timer_read();
+            }
+        } else {
+            // Preserve ordering when a normal key follows a pending Space.
+            send_pending_space();
+        }
     }
 
     return true;
