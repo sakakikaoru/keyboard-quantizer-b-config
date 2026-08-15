@@ -92,7 +92,7 @@ static const space_shortcut_t space_shortcuts[] = {
 
 #define SPACE_SHORTCUT_COUNT ((uint8_t)(sizeof(space_shortcuts) / sizeof(space_shortcuts[0])))
 
-#define SPACE_COMBO_TERM 200
+#define SPACE_COMBO_TERM 350
 
 static bool     space_pressed;
 static bool     space_sent;
