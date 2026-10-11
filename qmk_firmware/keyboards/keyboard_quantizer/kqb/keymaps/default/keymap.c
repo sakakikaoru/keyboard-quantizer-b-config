@@ -76,6 +76,7 @@ static const space_shortcut_t space_shortcuts[] = {
     {KC_0, KC_F10},
     {KC_MINS, KC_F11},
     {KC_EQL, KC_F12},
+    {KC_ESC, KC_PSCR},
     {KC_S, KC_LEFT},
     {KC_D, KC_DOWN},
     {KC_F, KC_RGHT},
